@@ -1,14 +1,21 @@
-# CodexSwitch
+# ccodex
 
-Go terminal dashboard for managing multiple Codex `auth.json` profiles.
+Terminal tool for managing multiple Codex `auth.json` profiles.
 
 ## Install
 
-Prerequisite:
+Recommended install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash -s -- --repo axinhouzilaoyue/codexSwitch
+```
+
+Environment notes:
 
 - `codex` CLI must already be installed on the target machine
 - Install Codex with `npm install -g @openai/codex` or `brew install --cask codex`
-- Go is only needed if you build from source; release install does not require Go
+- Go is not required for the release install above
+- Go is only needed if you build from source
 
 Local install:
 
@@ -42,13 +49,11 @@ Uninstall:
 ./scripts/uninstall.sh
 ```
 
-## Share It
+## Release
 
-The easiest sharing path is:
+GitHub release install is based on:
 
-1. Upload this repo to GitHub.
-
-2. Build release archives for all supported platforms:
+1. Build release archives for all supported platforms:
 
 ```bash
 make dist-all
@@ -59,14 +64,16 @@ This creates:
 ```bash
 dist/ccodex-<os>-<arch>.tar.gz
 dist/ccodex-<os>-<arch>.tar.gz.sha256
-```
+``` 
 
-3. Create a GitHub Release and upload all files in `dist/`.
+2. Push a tag such as `v0.2.0`
 
-4. Others can install with one command:
+3. GitHub Actions in `.github/workflows/release.yml` will build and publish the release assets automatically
+
+4. Others install with:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/install-release.sh | bash -s -- --repo <owner>/<repo>
+curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash -s -- --repo axinhouzilaoyue/codexSwitch
 ```
 
 The installer auto-detects macOS/Linux and arm64/amd64, downloads the latest GitHub Release asset, installs `ccodex`, and warns if `codex` CLI is missing.

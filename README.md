@@ -71,7 +71,7 @@ dist/ccodex-<os>-<arch>.tar.gz
 dist/ccodex-<os>-<arch>.tar.gz.sha256
 ``` 
 
-2. Push a tag such as `v0.2.5`
+2. Push a tag such as `v0.2.6`
 
 3. GitHub Actions in `.github/workflows/release.yml` will build and publish the release assets automatically
 
@@ -89,7 +89,7 @@ If you do not want to use GitHub Releases, you can still host archives yourself:
 curl -fsSL https://your-host.example/install-release.sh | bash -s -- --base-url https://your-host.example/releases
 ```
 
-There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.5`, it will build all release archives and attach them to the GitHub Release automatically.
+There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.6`, it will build all release archives and attach them to the GitHub Release automatically.
 
 ## What It Does
 
@@ -145,6 +145,8 @@ ccodex version
 ## Notes
 
 - Saved profiles live in `~/.codex-switch/profiles/<profile_id>/`
-- The app uses `codex app-server -c 'cli_auth_credentials_store="file"'` so isolated profiles persist to `auth.json`
+- Each saved profile directory only keeps `auth.json` and `meta.json`
+- Older runtime artifacts such as `skills/`, `memories/`, sqlite files, `tmp/`, and root-level `backups/` are cleaned up automatically
+- The app uses `codex app-server -c 'cli_auth_credentials_store="file"'` with temporary runtime homes, so saved profiles stay clean
 - Login uses the official Codex browser login flow, not a reimplemented OAuth flow
-- Refresh and quota reads happen against each saved profile's isolated `CODEX_HOME`, so they do not overwrite your current active Codex account
+- Refresh and quota reads happen against temporary isolated `CODEX_HOME` directories, so they do not overwrite your current active Codex account

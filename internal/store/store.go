@@ -16,8 +16,6 @@ import (
 type ProfileStore struct {
 	Root         string
 	ProfilesDir  string
-	BackupsDir   string
-	TmpDir       string
 	SettingsPath string
 }
 
@@ -31,13 +29,9 @@ func New(root string) (*ProfileStore, error) {
 	}
 	root = auth.ExpandPath(root)
 	profilesDir := filepath.Join(root, "profiles")
-	backupsDir := filepath.Join(root, "backups")
-	tmpDir := filepath.Join(root, "tmp")
 	return &ProfileStore{
 		Root:         root,
 		ProfilesDir:  profilesDir,
-		BackupsDir:   backupsDir,
-		TmpDir:       tmpDir,
 		SettingsPath: filepath.Join(root, "settings.json"),
 	}, nil
 }
@@ -130,23 +124,30 @@ func (store *ProfileStore) SaveSettings(settings model.AppSettings) error {
 	return WriteJSONAtomic(store.SettingsPath, settings)
 }
 
-func (store *ProfileStore) CreateTempHome(prefix string) (string, error) {
-	if err := ensurePrivateDir(store.TmpDir); err != nil {
-		return "", err
-	}
-	path, err := os.MkdirTemp(store.TmpDir, prefix+"-")
+func (store *ProfileStore) CreateRuntimeHome(prefix string, authSourcePath string) (string, error) {
+	path, err := os.MkdirTemp("", "ccodex-"+prefix+"-")
 	if err != nil {
 		return "", err
 	}
 	_ = os.Chmod(path, 0o700)
+	if authSourcePath != "" {
+		targetAuth := filepath.Join(path, "auth.json")
+		if err := CopyFileAtomic(authSourcePath, targetAuth); err != nil {
+			_ = os.RemoveAll(path)
+			return "", err
+		}
+	}
 	return path, nil
 }
 
-func (store *ProfileStore) CleanupTempHome(path string) {
+func (store *ProfileStore) CleanupRuntimeHome(path string) {
 	_ = os.RemoveAll(path)
 }
 
 func (store *ProfileStore) ListProfiles() ([]model.StoredProfile, error) {
+	if err := store.CleanupLayout(); err != nil {
+		return nil, err
+	}
 	if _, err := os.Stat(store.ProfilesDir); os.IsNotExist(err) {
 		return []model.StoredProfile{}, nil
 	}
@@ -211,6 +212,66 @@ func (store *ProfileStore) ListProfiles() ([]model.StoredProfile, error) {
 		return strings.Compare(left.Meta.ProfileID, right.Meta.ProfileID)
 	})
 	return profiles, nil
+}
+
+func (store *ProfileStore) CleanupLayout() error {
+	if _, err := os.Stat(store.Root); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(store.Root)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "profiles" || name == "settings.json" {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(store.Root, name)); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Stat(store.ProfilesDir); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	profileEntries, err := os.ReadDir(store.ProfilesDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range profileEntries {
+		path := filepath.Join(store.ProfilesDir, entry.Name())
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || strings.HasPrefix(entry.Name(), "_") {
+			if err := os.RemoveAll(path); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := sanitizeProfileHome(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sanitizeProfileHome(home string) error {
+	entries, err := os.ReadDir(home)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "auth.json" || name == "meta.json" {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(home, name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (store *ProfileStore) GetProfile(profileID string) (model.StoredProfile, error) {
@@ -298,6 +359,9 @@ func (store *ProfileStore) UpsertProfileFromHome(sourceHome string, source strin
 	if err := WriteJSONAtomic(metaPath, meta); err != nil {
 		return model.StoredProfile{}, err
 	}
+	if err := sanitizeProfileHome(finalHome); err != nil {
+		return model.StoredProfile{}, err
+	}
 	return model.StoredProfile{Home: finalHome, Meta: meta}, nil
 }
 
@@ -305,28 +369,18 @@ func (store *ProfileStore) DeleteProfile(profileID string) error {
 	return os.RemoveAll(store.profileHome(profileID))
 }
 
-func (store *ProfileStore) SwitchProfile(profileID string, targetCodexHome string) (string, string, error) {
+func (store *ProfileStore) SwitchProfile(profileID string, targetCodexHome string) (string, error) {
 	profile, err := store.GetProfile(profileID)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	targetCodexHome = auth.ExpandPath(targetCodexHome)
 	if err := ensurePrivateDir(targetCodexHome); err != nil {
-		return "", "", err
+		return "", err
 	}
 	targetAuth := filepath.Join(targetCodexHome, "auth.json")
-	backupPath := ""
-	if _, err := os.Stat(targetAuth); err == nil {
-		if err := ensurePrivateDir(store.BackupsDir); err != nil {
-			return "", "", err
-		}
-		backupPath = filepath.Join(store.BackupsDir, "auth-backup-"+strings.ReplaceAll(auth.UTCNowISO(), ":", "-")+".json")
-		if err := CopyFileAtomic(targetAuth, backupPath); err != nil {
-			return "", "", err
-		}
-	}
 	if err := CopyFileAtomic(profile.AuthPath(), targetAuth); err != nil {
-		return "", "", err
+		return "", err
 	}
-	return targetAuth, backupPath, nil
+	return targetAuth, nil
 }

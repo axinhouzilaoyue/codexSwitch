@@ -857,7 +857,16 @@ func (app *App) startRefresh(profiles []model.StoredProfile, reason string) {
 	go func(list []model.StoredProfile, total int, label string) {
 		for idx, profile := range list {
 			accountName := savedProfileLabel(profile)
-			_, account, quota, err := codex.ProbeCodexHomeWithTimeout(profile.Home, true, 12*time.Second)
+			runtimeHome, runtimeErr := app.store.CreateRuntimeHome("probe", profile.AuthPath())
+			if runtimeErr != nil {
+				_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, nil, profile.Meta.Quota, statusFromError(runtimeErr.Error()), runtimeErr.Error())
+				app.refreshEvents <- refreshEvent{
+					message: fmt.Sprintf("%s：%d/%d %s（有警告）", label, idx+1, total, accountName),
+				}
+				continue
+			}
+			_, account, quota, err := codex.ProbeCodexHomeWithTimeout(runtimeHome, true, 12*time.Second)
+			app.store.CleanupRuntimeHome(runtimeHome)
 			if err == nil {
 				_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, account, quota, "ok", "")
 				app.refreshEvents <- refreshEvent{
@@ -903,16 +912,13 @@ func (app *App) switchSelected() {
 		app.status = "选中的账号已经是当前生效账号"
 		return
 	}
-	target, backup, err := app.store.SwitchProfile(profile.Meta.ProfileID, app.targetCodexHome)
+	target, err := app.store.SwitchProfile(profile.Meta.ProfileID, app.targetCodexHome)
 	if err != nil {
 		app.status = "切换失败：" + err.Error()
 		return
 	}
 	_ = app.syncState()
 	app.status = "已切换生效账号：" + displayPath(target)
-	if backup != "" {
-		app.status += "（已备份到 " + displayPath(backup) + "）"
-	}
 }
 
 func (app *App) performDeleteSelected() {
@@ -930,7 +936,7 @@ func (app *App) performDeleteSelected() {
 }
 
 func (app *App) loginNewAccount(terminal *ui.Terminal) {
-	tempHome, err := app.store.CreateTempHome("login")
+	tempHome, err := app.store.CreateRuntimeHome("login", "")
 	if err != nil {
 		app.status = "登录失败：" + err.Error()
 		app.needsRedraw = true
@@ -939,7 +945,7 @@ func (app *App) loginNewAccount(terminal *ui.Terminal) {
 
 	result := ""
 	err = terminal.Suspend(func(tty *os.File) error {
-		defer app.store.CleanupTempHome(tempHome)
+		defer app.store.CleanupRuntimeHome(tempHome)
 		reader := bufio.NewReader(tty)
 		fmt.Fprintln(tty)
 		fmt.Fprintf(tty, "[%s] 正在隔离目录中启动 ChatGPT 登录：%s\n", auth.UTCNowISO(), tempHome)

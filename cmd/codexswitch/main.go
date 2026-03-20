@@ -8,6 +8,7 @@ import (
 	"codexswitch/internal/app"
 	"codexswitch/internal/buildinfo"
 	"codexswitch/internal/cli"
+	"codexswitch/internal/selfmanage"
 	"codexswitch/internal/store"
 )
 
@@ -27,6 +28,8 @@ func main() {
 		fmt.Fprintln(flags.Output(), "  ccodex list [--store-dir DIR] [--codex-home DIR]")
 		fmt.Fprintln(flags.Output(), "  ccodex current [--store-dir DIR] [--codex-home DIR]")
 		fmt.Fprintln(flags.Output(), "  ccodex doctor [--store-dir DIR] [--codex-home DIR]")
+		fmt.Fprintln(flags.Output(), "  ccodex update")
+		fmt.Fprintln(flags.Output(), "  ccodex uninstall")
 		fmt.Fprintln(flags.Output(), "  ccodex version")
 		fmt.Fprintln(flags.Output(), "")
 		fmt.Fprintln(flags.Output(), "Commands:")
@@ -34,6 +37,8 @@ func main() {
 		fmt.Fprintln(flags.Output(), "  list       Print saved profiles")
 		fmt.Fprintln(flags.Output(), "  current    Print the active account from target CODEX_HOME")
 		fmt.Fprintln(flags.Output(), "  doctor     Print environment diagnostics")
+		fmt.Fprintln(flags.Output(), "  update     Download and replace ccodex with the latest release")
+		fmt.Fprintln(flags.Output(), "  uninstall  Remove the installed ccodex binary")
 		fmt.Fprintln(flags.Output(), "  version    Print version and exit")
 		fmt.Fprintln(flags.Output(), "")
 		flags.PrintDefaults()
@@ -49,6 +54,21 @@ func main() {
 
 	if showVersion || command == "version" {
 		fmt.Println(buildinfo.Version)
+		return
+	}
+
+	switch command {
+	case "update":
+		if err := selfmanage.RunUpdate(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	case "uninstall":
+		if err := selfmanage.RunUninstall(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		return
 	}
 

@@ -22,6 +22,8 @@ print_post_install() {
   echo "  ccodex"
   echo "  ccodex current"
   echo "  ccodex doctor"
+  echo "  ccodex update"
+  echo "  ccodex uninstall"
   echo ""
   echo "首次使用:"
   echo "  1. 确保 codex CLI 已安装并完成登录"

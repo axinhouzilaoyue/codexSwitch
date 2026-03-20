@@ -342,14 +342,13 @@ func (app *App) profileTableLines(width int, maxRows int) []styledLine {
 		}
 	}
 
-	labelWidth := max(16, width-70)
+	labelWidth := max(18, width-58)
 	header := "  " + tableCell("账号", labelWidth) + " " +
 		tableCell("套餐", 6) + " " +
-		tableCell("到期", 11) + " " +
 		tableCell("5h", 8) + " " +
 		tableCell("7d", 8) + " " +
 		tableCell("状态", 6) + " " +
-		tableCell("上次检查", 11)
+		tableCell("到期", 11)
 	lines = append(lines, styledLine{text: header, style: "2", preserve: true})
 
 	start := 0
@@ -364,11 +363,10 @@ func (app *App) profileTableLines(width int, maxRows int) []styledLine {
 		row := rowMarker(app.mode, idx == app.selection, active) + " " +
 			tableCell(accountLabel, labelWidth) + " " +
 			tableCell(shorten(planLabel(profile.Meta.PlanType), 6), 6) + " " +
-			tableCell(formatCheckedAt(app.subscriptionUntilForProfile(profile)), 11) + " " +
 			tableCell(quotaCompact(profile.Meta.Quota, "primary"), 8) + " " +
 			tableCell(quotaCompact(profile.Meta.Quota, "secondary"), 8) + " " +
 			tableCell(shorten(displayStatus(profile.Meta.Status), 6), 6) + " " +
-			tableCell(formatCheckedAt(profile.Meta.LastChecked), 11)
+			tableCell(formatCheckedAt(app.subscriptionUntilForProfile(profile)), 11)
 		lines = append(lines, styledLine{text: row, style: app.rowStyle(idx, active), preserve: true})
 	}
 

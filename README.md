@@ -71,7 +71,7 @@ dist/ccodex-<os>-<arch>.tar.gz
 dist/ccodex-<os>-<arch>.tar.gz.sha256
 ``` 
 
-2. Push a tag such as `v0.2.4`
+2. Push a tag such as `v0.2.5`
 
 3. GitHub Actions in `.github/workflows/release.yml` will build and publish the release assets automatically
 
@@ -89,7 +89,7 @@ If you do not want to use GitHub Releases, you can still host archives yourself:
 curl -fsSL https://your-host.example/install-release.sh | bash -s -- --base-url https://your-host.example/releases
 ```
 
-There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.4`, it will build all release archives and attach them to the GitHub Release automatically.
+There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.5`, it will build all release archives and attach them to the GitHub Release automatically.
 
 ## What It Does
 

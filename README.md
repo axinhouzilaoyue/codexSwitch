@@ -7,7 +7,7 @@ Terminal tool for managing multiple Codex `auth.json` profiles.
 Recommended install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash -s -- --repo axinhouzilaoyue/codexSwitch
+curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash
 ```
 
 Environment notes:
@@ -74,7 +74,7 @@ dist/ccodex-<os>-<arch>.tar.gz.sha256
 4. Others install with:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash -s -- --repo axinhouzilaoyue/codexSwitch
+curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash
 ```
 
 The installer auto-detects macOS/Linux and arm64/amd64, downloads the latest GitHub Release asset, installs `ccodex`, and warns if `codex` CLI is missing.

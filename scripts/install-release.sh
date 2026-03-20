@@ -10,7 +10,8 @@ LEGACY_ALIAS_TARGET="${BIN_DIR}/ccswitch"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ccodex-install-XXXXXX")"
 ARCHIVE_URL="${CCODEX_ARCHIVE_URL:-}"
 BASE_URL=""
-GITHUB_REPO="${CCODEX_GITHUB_REPO:-}"
+DEFAULT_GITHUB_REPO="axinhouzilaoyue/codexSwitch"
+GITHUB_REPO="${CCODEX_GITHUB_REPO:-${DEFAULT_GITHUB_REPO}}"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -20,12 +21,13 @@ trap cleanup EXIT
 usage() {
   cat <<'EOF'
 Usage:
+  install-release.sh
   install-release.sh --repo owner/repo
   install-release.sh --url https://host/path/ccodex-darwin-arm64.tar.gz
   install-release.sh --base-url https://host/path/to/releases
 
 Options:
-  --repo      GitHub repository. Installer uses releases/latest/download
+  --repo      GitHub repository override. Default is the official ccodex repo
   --url       Full archive URL
   --base-url  Base URL; installer appends ccodex-<os>-<arch>.tar.gz
 EOF
@@ -84,7 +86,7 @@ if [[ -z "${ARCHIVE_URL}" && -n "${GITHUB_REPO}" ]]; then
 fi
 
 if [[ -z "${ARCHIVE_URL}" ]]; then
-  echo "Missing archive URL. Use --repo, --url, or --base-url." >&2
+  echo "Missing archive URL. Use the default repo, or override with --repo, --url, or --base-url." >&2
   usage >&2
   exit 1
 fi

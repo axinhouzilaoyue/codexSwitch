@@ -20,7 +20,8 @@ Environment notes:
 Local install:
 
 ```bash
-cd /Users/liukaixin02/Code/CodexSwitch
+git clone https://github.com/axinhouzilaoyue/codexSwitch.git
+cd codexSwitch
 ./scripts/install.sh
 ```
 

@@ -94,17 +94,20 @@ func AccountInfoFromResponse(data map[string]any) *AccountInfo {
 }
 
 type AuthSnapshot struct {
-	AuthMode        string
-	AccountID       string
-	Email           string
-	Name            string
-	PlanType        string
-	AccessExp       *int64
-	IDExp           *int64
-	LastRefresh     string
-	AuthSHA256      string
-	SourcePath      string
-	HasRefreshToken bool
+	AuthMode                string
+	AccountID               string
+	Email                   string
+	Name                    string
+	PlanType                string
+	SubscriptionActiveStart string
+	SubscriptionActiveUntil string
+	SubscriptionLastChecked string
+	AccessExp               *int64
+	IDExp                   *int64
+	LastRefresh             string
+	AuthSHA256              string
+	SourcePath              string
+	HasRefreshToken         bool
 }
 
 func (snapshot AuthSnapshot) DisplayLabel() string {
@@ -121,24 +124,27 @@ func (snapshot AuthSnapshot) DisplayLabel() string {
 }
 
 type ProfileMeta struct {
-	ProfileID       string             `json:"profile_id"`
-	Label           string             `json:"label"`
-	AccountID       string             `json:"account_id,omitempty"`
-	Email           string             `json:"email,omitempty"`
-	PlanType        string             `json:"plan_type,omitempty"`
-	AuthMode        string             `json:"auth_mode,omitempty"`
-	HasRefreshToken bool               `json:"has_refresh_token,omitempty"`
-	AuthSHA256      string             `json:"auth_sha256"`
-	LastRefresh     string             `json:"last_refresh,omitempty"`
-	AccessExp       *int64             `json:"access_exp,omitempty"`
-	IDExp           *int64             `json:"id_exp,omitempty"`
-	CreatedAt       string             `json:"created_at"`
-	UpdatedAt       string             `json:"updated_at"`
-	LastChecked     string             `json:"last_checked,omitempty"`
-	Source          string             `json:"source,omitempty"`
-	Status          string             `json:"status,omitempty"`
-	LastError       string             `json:"last_error,omitempty"`
-	Quota           *RateLimitSnapshot `json:"quota,omitempty"`
+	ProfileID               string             `json:"profile_id"`
+	Label                   string             `json:"label"`
+	AccountID               string             `json:"account_id,omitempty"`
+	Email                   string             `json:"email,omitempty"`
+	PlanType                string             `json:"plan_type,omitempty"`
+	AuthMode                string             `json:"auth_mode,omitempty"`
+	HasRefreshToken         bool               `json:"has_refresh_token,omitempty"`
+	SubscriptionActiveStart string             `json:"subscription_active_start,omitempty"`
+	SubscriptionActiveUntil string             `json:"subscription_active_until,omitempty"`
+	SubscriptionLastChecked string             `json:"subscription_last_checked,omitempty"`
+	AuthSHA256              string             `json:"auth_sha256"`
+	LastRefresh             string             `json:"last_refresh,omitempty"`
+	AccessExp               *int64             `json:"access_exp,omitempty"`
+	IDExp                   *int64             `json:"id_exp,omitempty"`
+	CreatedAt               string             `json:"created_at"`
+	UpdatedAt               string             `json:"updated_at"`
+	LastChecked             string             `json:"last_checked,omitempty"`
+	Source                  string             `json:"source,omitempty"`
+	Status                  string             `json:"status,omitempty"`
+	LastError               string             `json:"last_error,omitempty"`
+	Quota                   *RateLimitSnapshot `json:"quota,omitempty"`
 }
 
 type StoredProfile struct {

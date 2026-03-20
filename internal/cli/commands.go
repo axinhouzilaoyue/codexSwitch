@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os/exec"
+	"strings"
+	"time"
 
 	"codexswitch/internal/buildinfo"
 	"codexswitch/internal/model"
@@ -52,7 +54,10 @@ func RunCurrent(profileStore *store.ProfileStore, targetOverride string) error {
 	}
 	fmt.Printf("Current account: %s [%s]\n", snapshot.CurrentSnapshot.DisplayLabel(), fallback(snapshot.CurrentSnapshot.PlanType))
 	fmt.Printf("Account ID: %s\n", fallback(snapshot.CurrentSnapshot.AccountID))
-	fmt.Printf("Last refresh: %s\n", fallback(snapshot.CurrentSnapshot.LastRefresh))
+	if snapshot.CurrentSnapshot.SubscriptionActiveUntil != "" {
+		fmt.Printf("Subscription until: %s\n", formatTimestamp(snapshot.CurrentSnapshot.SubscriptionActiveUntil))
+	}
+	fmt.Printf("Last refresh: %s\n", fallback(formatTimestamp(snapshot.CurrentSnapshot.LastRefresh)))
 	fmt.Printf("Primary quota: %s\n", quotaCell(snapshot.CurrentQuota, true))
 	fmt.Printf("Secondary quota: %s\n", quotaCell(snapshot.CurrentQuota, false))
 	if snapshot.CurrentQuotaNote != "" {
@@ -97,6 +102,9 @@ func RunDoctor(profileStore *store.ProfileStore, targetOverride string) error {
 	} else {
 		fmt.Printf("Active auth.json: %s\n", snapshot.CurrentSnapshot.SourcePath)
 		fmt.Printf("Active account: %s [%s]\n", snapshot.CurrentSnapshot.DisplayLabel(), fallback(snapshot.CurrentSnapshot.PlanType))
+		if snapshot.CurrentSnapshot.SubscriptionActiveUntil != "" {
+			fmt.Printf("Active subscription until: %s\n", formatTimestamp(snapshot.CurrentSnapshot.SubscriptionActiveUntil))
+		}
 		fmt.Printf("Active primary quota: %s\n", quotaCell(snapshot.CurrentQuota, true))
 		fmt.Printf("Active secondary quota: %s\n", quotaCell(snapshot.CurrentQuota, false))
 		if snapshot.CurrentQuotaNote != "" {
@@ -144,4 +152,19 @@ func truncate(value string, limit int) string {
 		return value
 	}
 	return string([]rune(value)[:limit])
+}
+
+func formatTimestamp(value string) string {
+	if value == "" {
+		return ""
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return parsed.Local().Format("2006-01-02 15:04")
+	}
+	value = strings.ReplaceAll(value, "T", " ")
+	value = strings.TrimSuffix(value, "Z")
+	if len(value) >= 16 {
+		return value[:16]
+	}
+	return value
 }

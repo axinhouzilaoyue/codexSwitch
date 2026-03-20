@@ -96,11 +96,23 @@ func LoadAuthSnapshot(path string) (model.AuthSnapshot, error) {
 		name = conv.String(accessToken["name"])
 	}
 	return model.AuthSnapshot{
-		AuthMode:        file.AuthMode,
-		AccountID:       accountID,
-		Email:           email,
-		Name:            name,
-		PlanType:        planType,
+		AuthMode:  file.AuthMode,
+		AccountID: accountID,
+		Email:     email,
+		Name:      name,
+		PlanType:  planType,
+		SubscriptionActiveStart: firstString(
+			conv.String(idAuth["chatgpt_subscription_active_start"]),
+			conv.String(accessAuth["chatgpt_subscription_active_start"]),
+		),
+		SubscriptionActiveUntil: firstString(
+			conv.String(idAuth["chatgpt_subscription_active_until"]),
+			conv.String(accessAuth["chatgpt_subscription_active_until"]),
+		),
+		SubscriptionLastChecked: firstString(
+			conv.String(idAuth["chatgpt_subscription_last_checked"]),
+			conv.String(accessAuth["chatgpt_subscription_last_checked"]),
+		),
 		AccessExp:       conv.Int64(accessToken["exp"]),
 		IDExp:           conv.Int64(idToken["exp"]),
 		LastRefresh:     file.LastRefresh,
@@ -108,6 +120,15 @@ func LoadAuthSnapshot(path string) (model.AuthSnapshot, error) {
 		SourcePath:      path,
 		HasRefreshToken: file.Tokens.RefreshToken != "",
 	}, nil
+}
+
+func firstString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func SnapshotWithAccount(snapshot model.AuthSnapshot, account *model.AccountInfo) model.AuthSnapshot {

@@ -318,6 +318,9 @@ func (app *App) currentSummaryLines(width int) []styledLine {
 		{text: "当前：" + currentAccountLabel(app.currentSnapshot) + "   5h：" + quotaCompact(app.currentQuota, "primary") + "   周：" + quotaCompact(app.currentQuota, "secondary"), style: "32;1", preserve: true},
 		{text: "状态：" + shorten(app.status, width-6), style: statusStyle(app.status), preserve: true},
 	}
+	if app.currentSnapshot.SubscriptionActiveUntil != "" {
+		lines = append(lines, styledLine{text: "订阅到期：" + formatISO(app.currentSnapshot.SubscriptionActiveUntil), style: "36", preserve: true})
+	}
 	if app.currentProfileID == "" {
 		lines = append(lines, styledLine{text: "提示：当前生效账号还没有保存到 CodexSwitch。", style: "33"})
 	}
@@ -401,6 +404,7 @@ func (app *App) detailLines() []styledLine {
 		{text: summaryLine("RefreshToken", yesNo(profile.Meta.HasRefreshToken)), preserve: true},
 		{text: summaryLine("上次刷新", formatISO(profile.Meta.LastRefresh)), preserve: true},
 		{text: summaryLine("上次检查", formatISO(profile.Meta.LastChecked)), preserve: true},
+		{text: summaryLine("订阅到期", formatISO(app.subscriptionUntilForProfile(*profile))), preserve: true},
 		{text: summaryLine("5 小时额度", quotaStatusText(profile.Meta.Quota, "primary")), style: quotaStyle(profile.Meta.Quota, "primary"), preserve: true},
 		{text: summaryLine("周额度", quotaStatusText(profile.Meta.Quota, "secondary")), style: quotaStyle(profile.Meta.Quota, "secondary"), preserve: true},
 		{text: summaryLine("来源", detailSourceText(profile.Meta.Source)), preserve: true},
@@ -646,6 +650,16 @@ func currentAccountLabel(snapshot *model.AuthSnapshot) string {
 		label += " (" + strings.Title(snapshot.PlanType) + ")"
 	}
 	return label
+}
+
+func (app *App) subscriptionUntilForProfile(profile model.StoredProfile) string {
+	if profile.Meta.SubscriptionActiveUntil != "" {
+		return profile.Meta.SubscriptionActiveUntil
+	}
+	if app.currentSnapshot != nil && profile.Meta.ProfileID == app.currentProfileID {
+		return app.currentSnapshot.SubscriptionActiveUntil
+	}
+	return ""
 }
 
 func accountBoxTitle(total int, mode viewMode) string {

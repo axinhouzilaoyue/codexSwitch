@@ -35,8 +35,11 @@ func TestLoadAuthSnapshot(t *testing.T) {
 				"name":  "tester",
 				"exp":   111,
 				AuthNamespace: map[string]any{
-					"chatgpt_account_id": "acct-1",
-					"chatgpt_plan_type":  "team",
+					"chatgpt_account_id":                "acct-1",
+					"chatgpt_plan_type":                 "team",
+					"chatgpt_subscription_active_start": "2026-03-07T17:09:50+00:00",
+					"chatgpt_subscription_active_until": "2026-04-07T17:09:50+00:00",
+					"chatgpt_subscription_last_checked": "2026-03-20T06:56:56.843097+00:00",
 				},
 			}),
 			"access_token": jwt(map[string]any{
@@ -72,6 +75,9 @@ func TestLoadAuthSnapshot(t *testing.T) {
 	}
 	if snapshot.AccessExp == nil || *snapshot.AccessExp != 222 {
 		t.Fatalf("unexpected access exp: %+v", snapshot.AccessExp)
+	}
+	if snapshot.SubscriptionActiveUntil != "2026-04-07T17:09:50+00:00" {
+		t.Fatalf("unexpected subscription until: %s", snapshot.SubscriptionActiveUntil)
 	}
 }
 

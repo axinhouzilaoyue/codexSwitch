@@ -12,6 +12,8 @@ curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/sc
 
 Environment notes:
 
+- Supported terminals: macOS terminal, Linux shell, and Windows WSL terminal
+- Native Windows PowerShell / cmd is not supported; use WSL on Windows
 - `codex` CLI must already be installed on the target machine
 - Install Codex with `npm install -g @openai/codex` or `brew install --cask codex`
 - Go is not required for the release install above
@@ -50,6 +52,8 @@ Uninstall:
 ccodex uninstall
 ```
 
+`ccodex uninstall` removes the installed binary, legacy command names, and the default data directory `~/.codex-switch`. If you used a custom `--store-dir`, remove that directory manually.
+
 ## Release
 
 GitHub release install is based on:
@@ -67,7 +71,7 @@ dist/ccodex-<os>-<arch>.tar.gz
 dist/ccodex-<os>-<arch>.tar.gz.sha256
 ``` 
 
-2. Push a tag such as `v0.2.1`
+2. Push a tag such as `v0.2.2`
 
 3. GitHub Actions in `.github/workflows/release.yml` will build and publish the release assets automatically
 
@@ -77,7 +81,7 @@ dist/ccodex-<os>-<arch>.tar.gz.sha256
 curl -fsSL https://raw.githubusercontent.com/axinhouzilaoyue/codexSwitch/main/scripts/install-release.sh | bash
 ```
 
-The installer auto-detects macOS/Linux and arm64/amd64, downloads the latest GitHub Release asset, installs `ccodex`, and warns if `codex` CLI is missing.
+The installer auto-detects macOS/Linux and arm64/amd64, uses the Linux package inside WSL, installs `ccodex`, and warns if `codex` CLI is missing.
 
 If you do not want to use GitHub Releases, you can still host archives yourself:
 
@@ -85,7 +89,7 @@ If you do not want to use GitHub Releases, you can still host archives yourself:
 curl -fsSL https://your-host.example/install-release.sh | bash -s -- --base-url https://your-host.example/releases
 ```
 
-There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.1`, it will build all release archives and attach them to the GitHub Release automatically.
+There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.2`, it will build all release archives and attach them to the GitHub Release automatically.
 
 ## What It Does
 

@@ -81,6 +81,10 @@ func RunUninstall() error {
 		return err
 	}
 	targetDir := filepath.Dir(executablePath)
+	defaultStoreRoot, err := defaultStoreRoot()
+	if err != nil {
+		return err
+	}
 
 	removed := make([]string, 0, 1+len(legacyNames))
 	for _, path := range uninstallTargets(executablePath) {
@@ -92,6 +96,10 @@ func RunUninstall() error {
 		}
 		removed = append(removed, path)
 	}
+	dataRemoved, err := removeStoreRoot(defaultStoreRoot)
+	if err != nil {
+		return err
+	}
 
 	if len(removed) == 0 {
 		fmt.Println("Nothing to uninstall.")
@@ -100,7 +108,13 @@ func RunUninstall() error {
 			fmt.Printf("Removed %s\n", path)
 		}
 	}
-	fmt.Println("Saved profiles remain in ~/.codex-switch")
+	if dataRemoved {
+		fmt.Printf("Removed %s\n", defaultStoreRoot)
+	} else {
+		fmt.Printf("No data directory to remove at %s\n", defaultStoreRoot)
+	}
+	fmt.Println("Uninstall complete.")
+	fmt.Println("If you used a custom --store-dir, remove it manually.")
 	fmt.Printf("Current executable directory: %s\n", targetDir)
 	return nil
 }
@@ -185,6 +199,14 @@ func currentExecutablePath() (string, error) {
 	return executablePath, nil
 }
 
+func defaultStoreRoot() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".codex-switch"), nil
+}
+
 func removeLegacyBinaries(dir string) error {
 	for _, name := range legacyNames {
 		path := filepath.Join(dir, name)
@@ -205,4 +227,17 @@ func uninstallTargets(executablePath string) []string {
 		}
 	}
 	return targets
+}
+
+func removeStoreRoot(path string) (bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %s: %w", path, err)
+	}
+	if err := os.RemoveAll(path); err != nil {
+		return false, fmt.Errorf("remove %s: %w", path, err)
+	}
+	return true, nil
 }

@@ -12,6 +12,8 @@ ARCHIVE_URL="${CCODEX_ARCHIVE_URL:-}"
 BASE_URL=""
 DEFAULT_GITHUB_REPO="axinhouzilaoyue/codexSwitch"
 GITHUB_REPO="${CCODEX_GITHUB_REPO:-${DEFAULT_GITHUB_REPO}}"
+PLATFORM_LABEL=""
+WSL_NOTE=""
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -24,8 +26,12 @@ print_post_install() {
   echo "  启动命令: ccodex"
   echo "  备用路径: ${TARGET}"
   echo "  安装位置: ${BIN_DIR}"
+  echo "  当前平台: ${PLATFORM_LABEL}"
   echo "  账号仓库: ~/.codex-switch"
   echo "  生效目录: 自动探测 Codex 的 CODEX_HOME（通常是 ~/.codex）"
+  if [[ -n "${WSL_NOTE}" ]]; then
+    echo "  平台说明: ${WSL_NOTE}"
+  fi
   echo ""
   echo "常用命令:"
   echo "  ccodex"
@@ -53,6 +59,27 @@ Options:
   --url       Full archive URL
   --base-url  Base URL; installer appends ccodex-<os>-<arch>.tar.gz
 EOF
+}
+
+detect_wsl() {
+  if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
+    return 0
+  fi
+  if [[ -r /proc/version ]] && grep -qiE 'microsoft|wsl' /proc/version; then
+    return 0
+  fi
+  return 1
+}
+
+install_binary() {
+  local source_path="$1"
+  local target_path="$2"
+  if command -v install >/dev/null 2>&1; then
+    install -m 0755 "${source_path}" "${target_path}"
+    return
+  fi
+  cp "${source_path}" "${target_path}"
+  chmod 0755 "${target_path}"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -85,7 +112,7 @@ case "$(uname -s)" in
   Darwin) OS_NAME="darwin" ;;
   Linux) OS_NAME="linux" ;;
   *)
-    echo "Unsupported OS: $(uname -s)" >&2
+    echo "Unsupported OS: $(uname -s). Use macOS, Linux, or a WSL terminal on Windows." >&2
     exit 1
     ;;
 esac
@@ -98,6 +125,12 @@ case "$(uname -m)" in
     exit 1
     ;;
 esac
+
+PLATFORM_LABEL="${OS_NAME}-${ARCH_NAME}"
+if detect_wsl; then
+  WSL_NOTE="WSL 环境会使用 Linux 发行包；请在 WSL 终端内运行安装命令。"
+  PLATFORM_LABEL="${PLATFORM_LABEL} (wsl)"
+fi
 
 if [[ -z "${ARCHIVE_URL}" && -n "${BASE_URL}" ]]; then
   ARCHIVE_URL="${BASE_URL%/}/${BIN_NAME}-${OS_NAME}-${ARCH_NAME}.tar.gz"
@@ -132,7 +165,7 @@ if [[ ! -f "${TMP_DIR}/${BIN_NAME}" ]]; then
 fi
 
 mkdir -p "${BIN_DIR}"
-install -m 0755 "${TMP_DIR}/${BIN_NAME}" "${TARGET}"
+install_binary "${TMP_DIR}/${BIN_NAME}" "${TARGET}"
 rm -f "${LEGACY_CURRENT_TARGET}" "${LEGACY_TARGET}" "${LEGACY_ALIAS_TARGET}"
 
 echo "Installed ${BIN_NAME} to ${TARGET}"

@@ -69,17 +69,14 @@ func Load(profileStore *store.ProfileStore, runtimeOverride string) (Snapshot, e
 	}
 	currentProfileID := ""
 	if currentSnapshot != nil {
-		for _, profile := range profiles {
-			if profile.Meta.AccountID != "" && profile.Meta.AccountID == currentSnapshot.AccountID {
-				currentProfileID = profile.Meta.ProfileID
-				currentQuota = profile.Meta.Quota
-				if profile.Meta.LastError != "" {
-					currentError = profile.Meta.LastError
-				}
-				if currentQuota != nil {
-					currentQuotaNote = "saved profile cache"
-				}
-				break
+		if profile := matchCurrentProfile(profiles, *currentSnapshot); profile != nil {
+			currentProfileID = profile.Meta.ProfileID
+			currentQuota = profile.Meta.Quota
+			if profile.Meta.LastError != "" {
+				currentError = profile.Meta.LastError
+			}
+			if currentQuota != nil {
+				currentQuotaNote = "saved profile cache"
 			}
 		}
 		if currentQuota == nil {
@@ -105,4 +102,30 @@ func Load(profileStore *store.ProfileStore, runtimeOverride string) (Snapshot, e
 		CurrentQuotaNote: currentQuotaNote,
 		CurrentProfileID: currentProfileID,
 	}, nil
+}
+
+func matchCurrentProfile(profiles []model.StoredProfile, snapshot model.AuthSnapshot) *model.StoredProfile {
+	currentEmail := auth.NormalizeEmail(snapshot.Email)
+	if currentEmail != "" {
+		for idx := range profiles {
+			if auth.NormalizeEmail(profiles[idx].Meta.Email) == currentEmail {
+				return &profiles[idx]
+			}
+		}
+	}
+	if snapshot.AuthSHA256 != "" {
+		for idx := range profiles {
+			if profiles[idx].Meta.AuthSHA256 == snapshot.AuthSHA256 {
+				return &profiles[idx]
+			}
+		}
+	}
+	if snapshot.AccountID != "" {
+		for idx := range profiles {
+			if profiles[idx].Meta.AccountID == snapshot.AccountID {
+				return &profiles[idx]
+			}
+		}
+	}
+	return nil
 }

@@ -161,40 +161,19 @@ func (store *ProfileStore) ListProfiles() ([]model.StoredProfile, error) {
 			continue
 		}
 		home := filepath.Join(store.ProfilesDir, entry.Name())
-		metaPath := filepath.Join(home, "meta.json")
 		authPath := filepath.Join(home, "auth.json")
-		if _, err := os.Stat(metaPath); os.IsNotExist(err) {
-			if _, err := os.Stat(authPath); err != nil {
-				continue
-			}
-			snapshot, err := auth.LoadAuthSnapshot(authPath)
-			if err != nil {
-				continue
-			}
-			now := auth.UTCNowISO()
-			meta := model.ProfileMeta{
-				ProfileID:               entry.Name(),
-				Label:                   auth.DefaultProfileLabel(snapshot, nil),
-				AccountID:               snapshot.AccountID,
-				Email:                   snapshot.Email,
-				PlanType:                snapshot.PlanType,
-				AuthMode:                snapshot.AuthMode,
-				HasRefreshToken:         snapshot.HasRefreshToken,
-				SubscriptionActiveStart: snapshot.SubscriptionActiveStart,
-				SubscriptionActiveUntil: snapshot.SubscriptionActiveUntil,
-				SubscriptionLastChecked: snapshot.SubscriptionLastChecked,
-				AuthSHA256:              snapshot.AuthSHA256,
-				LastRefresh:             snapshot.LastRefresh,
-				AccessExp:               snapshot.AccessExp,
-				IDExp:                   snapshot.IDExp,
-				CreatedAt:               now,
-				UpdatedAt:               now,
-			}
-			if err := WriteJSONAtomic(metaPath, meta); err != nil {
-				return nil, err
+		if _, err := os.Stat(authPath); err != nil {
+			continue
+		}
+		snapshot, snapshotErr := auth.LoadAuthSnapshot(authPath)
+		if snapshotErr == nil {
+			var renameErr error
+			home, renameErr = store.maybeRenameProfileHome(home, entry.Name(), snapshot)
+			if renameErr != nil {
+				return nil, renameErr
 			}
 		}
-		profile, err := store.GetProfile(entry.Name())
+		profile, err := store.loadStoredProfile(home, snapshot, snapshotErr)
 		if err != nil {
 			return nil, err
 		}
@@ -212,6 +191,137 @@ func (store *ProfileStore) ListProfiles() ([]model.StoredProfile, error) {
 		return strings.Compare(left.Meta.ProfileID, right.Meta.ProfileID)
 	})
 	return profiles, nil
+}
+
+func (store *ProfileStore) maybeRenameProfileHome(home string, currentProfileID string, snapshot model.AuthSnapshot) (string, error) {
+	desiredProfileID := auth.CanonicalProfileID(snapshot)
+	if desiredProfileID == "" || desiredProfileID == currentProfileID {
+		return home, nil
+	}
+	targetHome := store.profileHome(desiredProfileID)
+	if _, err := os.Stat(targetHome); err == nil {
+		return home, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := os.Rename(home, targetHome); err != nil {
+		return "", err
+	}
+	return targetHome, nil
+}
+
+func (store *ProfileStore) loadStoredProfile(home string, snapshot model.AuthSnapshot, snapshotErr error) (model.StoredProfile, error) {
+	metaPath := filepath.Join(home, "meta.json")
+	var existing model.ProfileMeta
+	hasExisting := false
+	if content, err := os.ReadFile(metaPath); err == nil {
+		if json.Unmarshal(content, &existing) == nil {
+			hasExisting = true
+		}
+	}
+	if snapshotErr == nil {
+		profileID := filepath.Base(home)
+		meta, changed := buildProfileMeta(profileID, snapshot, existing, hasExisting)
+		if changed {
+			if err := WriteJSONAtomic(metaPath, meta); err != nil {
+				return model.StoredProfile{}, err
+			}
+		}
+		return model.StoredProfile{Home: home, Meta: meta}, nil
+	}
+	if hasExisting {
+		return model.StoredProfile{Home: home, Meta: existing}, nil
+	}
+	return model.StoredProfile{}, snapshotErr
+}
+
+func buildProfileMeta(profileID string, snapshot model.AuthSnapshot, existing model.ProfileMeta, hasExisting bool) (model.ProfileMeta, bool) {
+	now := auth.UTCNowISO()
+	meta := existing
+	if !hasExisting {
+		meta = model.ProfileMeta{
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+	}
+	changed := false
+	if meta.ProfileID != profileID {
+		meta.ProfileID = profileID
+		changed = true
+	}
+	label := auth.DefaultProfileLabel(snapshot, nil)
+	if meta.Label != label {
+		meta.Label = label
+		changed = true
+	}
+	email := auth.NormalizeEmail(snapshot.Email)
+	if meta.Email != email {
+		meta.Email = email
+		changed = true
+	}
+	if meta.AccountID != snapshot.AccountID {
+		meta.AccountID = snapshot.AccountID
+		changed = true
+	}
+	if meta.PlanType != snapshot.PlanType {
+		meta.PlanType = snapshot.PlanType
+		changed = true
+	}
+	if meta.AuthMode != snapshot.AuthMode {
+		meta.AuthMode = snapshot.AuthMode
+		changed = true
+	}
+	if meta.HasRefreshToken != snapshot.HasRefreshToken {
+		meta.HasRefreshToken = snapshot.HasRefreshToken
+		changed = true
+	}
+	if meta.SubscriptionActiveStart != snapshot.SubscriptionActiveStart {
+		meta.SubscriptionActiveStart = snapshot.SubscriptionActiveStart
+		changed = true
+	}
+	if meta.SubscriptionActiveUntil != snapshot.SubscriptionActiveUntil {
+		meta.SubscriptionActiveUntil = snapshot.SubscriptionActiveUntil
+		changed = true
+	}
+	if meta.SubscriptionLastChecked != snapshot.SubscriptionLastChecked {
+		meta.SubscriptionLastChecked = snapshot.SubscriptionLastChecked
+		changed = true
+	}
+	if meta.AuthSHA256 != snapshot.AuthSHA256 {
+		meta.AuthSHA256 = snapshot.AuthSHA256
+		changed = true
+	}
+	if meta.LastRefresh != snapshot.LastRefresh {
+		meta.LastRefresh = snapshot.LastRefresh
+		changed = true
+	}
+	if !sameInt64Ptr(meta.AccessExp, snapshot.AccessExp) {
+		meta.AccessExp = snapshot.AccessExp
+		changed = true
+	}
+	if !sameInt64Ptr(meta.IDExp, snapshot.IDExp) {
+		meta.IDExp = snapshot.IDExp
+		changed = true
+	}
+	if meta.CreatedAt == "" {
+		meta.CreatedAt = now
+		changed = true
+	}
+	if changed || meta.UpdatedAt == "" {
+		meta.UpdatedAt = now
+	}
+	return meta, changed || !hasExisting
+}
+
+func sameInt64Ptr(left *int64, right *int64) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
 }
 
 func (store *ProfileStore) CleanupLayout() error {
@@ -293,7 +403,16 @@ func (store *ProfileStore) UpsertProfileFromHome(sourceHome string, source strin
 	if err != nil {
 		return model.StoredProfile{}, err
 	}
-	profileID := auth.CanonicalProfileID(snapshot)
+	effectiveSnapshot := snapshot
+	if account != nil {
+		if effectiveSnapshot.Email == "" && account.Email != "" {
+			effectiveSnapshot.Email = account.Email
+		}
+		if account.PlanType != "" {
+			effectiveSnapshot.PlanType = account.PlanType
+		}
+	}
+	profileID := auth.CanonicalProfileID(effectiveSnapshot)
 	finalHome := store.profileHome(profileID)
 	if err := ensurePrivateDir(finalHome); err != nil {
 		return model.StoredProfile{}, err
@@ -312,50 +431,16 @@ func (store *ProfileStore) UpsertProfileFromHome(sourceHome string, source strin
 			existing = &meta
 		}
 	}
-	now := auth.UTCNowISO()
-	label := auth.DefaultProfileLabel(snapshot, account)
-	createdAt := now
+	meta := model.ProfileMeta{}
 	if existing != nil {
-		if existing.Label != "" {
-			label = existing.Label
-		}
-		if existing.CreatedAt != "" {
-			createdAt = existing.CreatedAt
-		}
+		meta = *existing
 	}
-	email := snapshot.Email
-	planType := snapshot.PlanType
-	if account != nil {
-		if account.Email != "" {
-			email = account.Email
-		}
-		if account.PlanType != "" {
-			planType = account.PlanType
-		}
-	}
-	meta := model.ProfileMeta{
-		ProfileID:               profileID,
-		Label:                   label,
-		AccountID:               snapshot.AccountID,
-		Email:                   email,
-		PlanType:                planType,
-		AuthMode:                snapshot.AuthMode,
-		HasRefreshToken:         snapshot.HasRefreshToken,
-		SubscriptionActiveStart: snapshot.SubscriptionActiveStart,
-		SubscriptionActiveUntil: snapshot.SubscriptionActiveUntil,
-		SubscriptionLastChecked: snapshot.SubscriptionLastChecked,
-		AuthSHA256:              snapshot.AuthSHA256,
-		LastRefresh:             snapshot.LastRefresh,
-		AccessExp:               snapshot.AccessExp,
-		IDExp:                   snapshot.IDExp,
-		CreatedAt:               createdAt,
-		UpdatedAt:               now,
-		LastChecked:             now,
-		Source:                  source,
-		Status:                  status,
-		LastError:               lastError,
-		Quota:                   quota,
-	}
+	meta, _ = buildProfileMeta(profileID, effectiveSnapshot, meta, existing != nil)
+	meta.LastChecked = auth.UTCNowISO()
+	meta.Source = source
+	meta.Status = status
+	meta.LastError = lastError
+	meta.Quota = quota
 	if err := WriteJSONAtomic(metaPath, meta); err != nil {
 		return model.StoredProfile{}, err
 	}

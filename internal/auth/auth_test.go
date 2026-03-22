@@ -81,13 +81,14 @@ func TestLoadAuthSnapshot(t *testing.T) {
 	}
 }
 
-func TestCanonicalProfileIDPrefersAccountID(t *testing.T) {
+func TestCanonicalProfileIDPrefersEmail(t *testing.T) {
 	tempDir := t.TempDir()
 	authPath := filepath.Join(tempDir, "auth.json")
 	content, _ := json.Marshal(map[string]any{
 		"auth_mode": "chatgpt",
 		"tokens": map[string]any{
 			"id_token": jwt(map[string]any{
+				"email": "Team17A@711511.xyz",
 				AuthNamespace: map[string]any{
 					"chatgpt_account_id": "acct-xyz",
 				},
@@ -104,7 +105,7 @@ func TestCanonicalProfileIDPrefersAccountID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if CanonicalProfileID(snapshot) != "acct-xyz" {
+	if CanonicalProfileID(snapshot) != "team17a_at_711511.xyz" {
 		t.Fatalf("unexpected profile id: %s", CanonicalProfileID(snapshot))
 	}
 }

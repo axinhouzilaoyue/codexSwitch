@@ -144,13 +144,17 @@ func SnapshotWithAccount(snapshot model.AuthSnapshot, account *model.AccountInfo
 	return snapshot
 }
 
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 func CanonicalProfileID(snapshot model.AuthSnapshot) string {
+	if email := NormalizeEmail(snapshot.Email); email != "" {
+		replacer := strings.NewReplacer("@", "_at_", "/", "_")
+		return replacer.Replace(email)
+	}
 	if snapshot.AccountID != "" {
 		return snapshot.AccountID
-	}
-	if snapshot.Email != "" {
-		replacer := strings.NewReplacer("@", "_at_", "/", "_")
-		return replacer.Replace(snapshot.Email)
 	}
 	raw := snapshot.SourcePath + ":" + snapshot.AuthSHA256
 	sum := sha256.Sum256([]byte(raw))

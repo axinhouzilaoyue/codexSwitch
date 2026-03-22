@@ -32,6 +32,7 @@ func RunUpdate() error {
 	}
 
 	fmt.Printf("Updating %s\n", executablePath)
+	fmt.Println("Resolving platform and release channel...")
 	fmt.Printf("Downloading %s\n", archiveURL)
 
 	response, err := (&http.Client{Timeout: 60 * time.Second}).Get(archiveURL)
@@ -45,6 +46,7 @@ func RunUpdate() error {
 		return fmt.Errorf("download update: unexpected status %s: %s", response.Status, strings.TrimSpace(string(snippet)))
 	}
 
+	fmt.Println("Release archive found, extracting binary...")
 	targetDir := filepath.Dir(executablePath)
 	tempFile, err := os.CreateTemp(targetDir, ".ccodex-update-*")
 	if err != nil {
@@ -53,19 +55,23 @@ func RunUpdate() error {
 	tempPath := tempFile.Name()
 	defer func() { _ = os.Remove(tempPath) }()
 
-	if err := extractBinary(response.Body, tempFile); err != nil {
+	progress := newProgressReader(response.Body, response.ContentLength)
+	if err := extractBinary(progress, tempFile); err != nil {
 		_ = tempFile.Close()
 		return err
 	}
+	progress.Finish()
 	if err := tempFile.Close(); err != nil {
 		return fmt.Errorf("close temp file: %w", err)
 	}
 	if err := os.Chmod(tempPath, 0o755); err != nil {
 		return fmt.Errorf("chmod temp file: %w", err)
 	}
+	fmt.Printf("Replacing %s\n", executablePath)
 	if err := os.Rename(tempPath, executablePath); err != nil {
 		return fmt.Errorf("replace executable: %w", err)
 	}
+	fmt.Println("Removing legacy command aliases...")
 	if err := removeLegacyBinaries(targetDir); err != nil {
 		return err
 	}
@@ -146,6 +152,71 @@ func extractBinary(reader io.Reader, out *os.File) error {
 		}
 		return nil
 	}
+}
+
+type progressReader struct {
+	reader            io.Reader
+	total             int64
+	read              int64
+	nextPercentMarker int
+}
+
+func newProgressReader(reader io.Reader, total int64) *progressReader {
+	return &progressReader{
+		reader:            reader,
+		total:             total,
+		nextPercentMarker: 25,
+	}
+}
+
+func (reader *progressReader) Read(buffer []byte) (int, error) {
+	n, err := reader.reader.Read(buffer)
+	if n > 0 {
+		reader.read += int64(n)
+		reader.report()
+	}
+	return n, err
+}
+
+func (reader *progressReader) report() {
+	if reader.total <= 0 {
+		return
+	}
+	for reader.nextPercentMarker <= 100 && reader.read*100 >= int64(reader.nextPercentMarker)*reader.total {
+		fmt.Printf("Download progress: %d%%\n", reader.nextPercentMarker)
+		reader.nextPercentMarker += 25
+	}
+}
+
+func (reader *progressReader) Finish() {
+	if reader.total <= 0 {
+		if reader.read > 0 {
+			fmt.Printf("Download complete: %s\n", humanSize(reader.read))
+		}
+		return
+	}
+	if reader.nextPercentMarker <= 100 {
+		fmt.Println("Download progress: 100%")
+		reader.nextPercentMarker = 125
+	}
+	fmt.Printf("Download complete: %s\n", humanSize(reader.read))
+}
+
+func humanSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	divisor := int64(unit)
+	suffix := "KiB"
+	for _, next := range []string{"MiB", "GiB", "TiB"} {
+		if size < divisor*unit {
+			break
+		}
+		divisor *= unit
+		suffix = next
+	}
+	return fmt.Sprintf("%.1f %s", float64(size)/float64(divisor), suffix)
 }
 
 func archiveURL() (string, error) {

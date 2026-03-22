@@ -11,6 +11,10 @@ GOCACHE_DIR="${GOCACHE:-${TMPDIR:-/tmp}/codexswitch-go-build}"
 PLATFORM_LABEL="$(go env GOOS)-$(go env GOARCH)"
 WSL_NOTE=""
 
+step() {
+  echo "[ccodex] $1"
+}
+
 detect_wsl() {
   if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
     return 0
@@ -52,10 +56,13 @@ if detect_wsl; then
   WSL_NOTE="WSL 环境会构建 Linux 二进制；请在 WSL 终端内运行 ccodex。"
 fi
 
+step "检测到平台 ${PLATFORM_LABEL}"
+step "构建本地二进制"
 mkdir -p "${BIN_DIR}"
 cd "${ROOT_DIR}"
 env GOCACHE="${GOCACHE_DIR}" go build -o "${TARGET}" ./cmd/codexswitch
 chmod +x "${TARGET}"
+step "清理旧命令"
 rm -f "${LEGACY_CURRENT_TARGET}" "${LEGACY_TARGET}" "${LEGACY_ALIAS_TARGET}"
 
 echo "Installed ccodex to ${TARGET}"

@@ -71,7 +71,7 @@ dist/ccodex-<os>-<arch>.tar.gz
 dist/ccodex-<os>-<arch>.tar.gz.sha256
 ``` 
 
-2. Push a tag such as `v0.2.8`
+2. Push a tag such as `v0.2.9`
 
 3. GitHub Actions in `.github/workflows/release.yml` will build and publish the release assets automatically
 
@@ -89,13 +89,14 @@ If you do not want to use GitHub Releases, you can still host archives yourself:
 curl -fsSL https://your-host.example/install-release.sh | bash -s -- --base-url https://your-host.example/releases
 ```
 
-There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.8`, it will build all release archives and attach them to the GitHub Release automatically.
+There is also a ready GitHub Actions workflow at `.github/workflows/release.yml`. If you push a tag like `v0.2.9`, it will build all release archives and attach them to the GitHub Release automatically.
 
 ## What It Does
 
 - Detects the real active `CODEX_HOME` via `codex app-server` and `config/read`
 - Logs in a new ChatGPT-backed Codex account into an isolated profile store
 - Refreshes saved profiles with Codex's own managed refresh flow
+- Auto-refreshes all saved profiles on startup with a small parallel worker pool
 - Reads structured Codex rate limits with `account/rateLimits/read`
 - Switches the active account by atomically replacing `<CODEX_HOME>/auth.json`
 - Deletes a saved profile
@@ -150,3 +151,5 @@ ccodex version
 - The app uses `codex app-server -c 'cli_auth_credentials_store="file"'` with temporary runtime homes, so saved profiles stay clean
 - Login uses the official Codex browser login flow, not a reimplemented OAuth flow
 - Refresh and quota reads happen against temporary isolated `CODEX_HOME` directories, so they do not overwrite your current active Codex account
+- On startup, `ccodex` automatically refreshes all saved profiles; it uses at most 3 concurrent workers so startup is faster without spawning too many `codex app-server` processes at once
+- `r` refreshes only the selected profile, and `R` refreshes every saved profile again on demand

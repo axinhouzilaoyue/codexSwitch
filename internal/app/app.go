@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -37,6 +38,8 @@ type refreshEvent struct {
 	message string
 	final   bool
 }
+
+const refreshWorkerLimit = 3
 
 type App struct {
 	store            *store.ProfileStore
@@ -855,28 +858,35 @@ func (app *App) startRefresh(profiles []model.StoredProfile, reason string) {
 	app.needsRedraw = true
 
 	go func(list []model.StoredProfile, total int, label string) {
-		for idx, profile := range list {
-			accountName := savedProfileLabel(profile)
-			runtimeHome, runtimeErr := app.store.CreateRuntimeHome("probe", profile.AuthPath())
-			if runtimeErr != nil {
-				_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, nil, profile.Meta.Quota, statusFromError(runtimeErr.Error()), runtimeErr.Error())
-				app.refreshEvents <- refreshEvent{
-					message: fmt.Sprintf("%s：%d/%d %s（有警告）", label, idx+1, total, accountName),
+		workerCount := min(refreshWorkerLimit, total)
+		jobs := make(chan model.StoredProfile)
+		results := make(chan string, total)
+		var workers sync.WaitGroup
+
+		for idx := 0; idx < workerCount; idx++ {
+			workers.Add(1)
+			go func() {
+				defer workers.Done()
+				for profile := range jobs {
+					results <- app.refreshProfile(profile)
 				}
-				continue
+			}()
+		}
+
+		go func() {
+			for _, profile := range list {
+				jobs <- profile
 			}
-			_, account, quota, err := codex.ProbeCodexHomeWithTimeout(runtimeHome, true, 12*time.Second)
-			app.store.CleanupRuntimeHome(runtimeHome)
-			if err == nil {
-				_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, account, quota, "ok", "")
-				app.refreshEvents <- refreshEvent{
-					message: fmt.Sprintf("%s：%d/%d %s", label, idx+1, total, accountName),
-				}
-				continue
-			}
-			_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, nil, profile.Meta.Quota, statusFromError(err.Error()), err.Error())
+			close(jobs)
+			workers.Wait()
+			close(results)
+		}()
+
+		completed := 0
+		for result := range results {
+			completed++
 			app.refreshEvents <- refreshEvent{
-				message: fmt.Sprintf("%s：%d/%d %s（有警告）", label, idx+1, total, accountName),
+				message: fmt.Sprintf("%s：%d/%d %s", label, completed, total, result),
 			}
 		}
 		app.refreshEvents <- refreshEvent{
@@ -884,6 +894,23 @@ func (app *App) startRefresh(profiles []model.StoredProfile, reason string) {
 			final:   true,
 		}
 	}(profiles, len(profiles), reason)
+}
+
+func (app *App) refreshProfile(profile model.StoredProfile) string {
+	accountName := savedProfileLabel(profile)
+	runtimeHome, runtimeErr := app.store.CreateRuntimeHome("probe", profile.AuthPath())
+	if runtimeErr != nil {
+		_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, nil, profile.Meta.Quota, statusFromError(runtimeErr.Error()), runtimeErr.Error())
+		return accountName + "（有警告）"
+	}
+	_, account, quota, err := codex.ProbeCodexHomeWithTimeout(runtimeHome, true, 12*time.Second)
+	app.store.CleanupRuntimeHome(runtimeHome)
+	if err == nil {
+		_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, account, quota, "ok", "")
+		return accountName
+	}
+	_, _ = app.store.UpsertProfileFromHome(profile.Home, profile.Meta.Source, nil, profile.Meta.Quota, statusFromError(err.Error()), err.Error())
+	return accountName + "（有警告）"
 }
 
 func (app *App) pumpRefreshEvents() {
